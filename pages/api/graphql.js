@@ -1,6 +1,8 @@
-// Next.js API route support: https://nextjs.org/docs/api-routes/introduction
 import { ApolloServer, gql } from "apollo-server-micro";
 import Cors from "micro-cors";
+const bcrypt = require('bcryptjs');
+
+const models = require('../../models')
 
 const cors = Cors({
   allowMethods: ["POST", "OPTIONS"]
@@ -41,16 +43,45 @@ const typeDefs = gql`
 
 const resolvers = {
   Query: {
-    hello: (_parent, _args, _context) => "Hello!"
+      async user (root, { id }, { models }) {
+            return models.User.findById(id)
+      },
+      async allRecipes (root, args, { models }) {
+            return models.Recipe.findAll()
+      },
+      async recipe (root, { id }, { models }) {
+            return models.Recipe.findById(id)
+      }
+    },
+  Mutation: {
+    async createUser (root, { name, email, password }, { models }) {
+        return models.User.create({
+            name,
+            email,
+            password: await bcrypt.hash(password, 10)
+          })
+    },
+    async createRecipe (root, { userId, title, ingredients, direction }, { models }) {
+        return models.Recipe.create({ userId, title, ingredients, direction })
+    }
+  },
+  User: {
+    async recipes (user) {
+        return user.getRecipes()
+    }
+  },
+  Recipe: {
+    async user (recipe) {
+        return recipe.getUser()
+    }
   }
-};
+}
+
 
 const apolloServer = new ApolloServer({
   typeDefs,
   resolvers,
-  context: () => {
-    return {};
-  }
+  context: { models }
 });
 
 const handler = apolloServer.createHandler({ path: "/api/hello" });
